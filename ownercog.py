@@ -88,7 +88,7 @@ class Owner(commands.Cog):
         except Exception as e:
             result = "```python\n"
             result += "".join(format_exception(e, e, e.__traceback__)) + "```"
-            result = result.replace(r"c:\Users\User\Desktop\CLASS 12 PYTHON CBSE\HandCricketBot\ownercog.py", "YOU MUST NOT SEE THIS PATH KEK")
+            result = result.replace(r"c:...Path...\ownercog.py", "YOU MUST NOT SEE THIS PATH KEK")
 
         return await ctx.send(result)
 

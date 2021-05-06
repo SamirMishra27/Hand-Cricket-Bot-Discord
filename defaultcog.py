@@ -6,24 +6,29 @@ import random
 
 from utils import *
 from game import SingleGame, DoubleGame
+from collections import deque
 
 class Default(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.cog_brief = 'Single and Double player commands.'
         self.cog_description = "This category lists two commands, player vs bot and player vs player."
-        self.match_end_footer = "*Did you liked the bot? Upvote it on [Top.gg]({})*".format(self.bot.topgg)
+        self.match_end_footer = "*Like the bot? Upvote it on [Top.gg]({})\nNew update is out! see h!news*".format(self.bot.topgg)
 
     @commands.command(hidden=True, usage = ['h!hello', None])
     async def hello(self, ctx):
         """No description available"""
         return await ctx.send("Hello!")
 
-    @commands.command(self_bot=False, brief='Play against the bot.', usage = ['h! play', None])
+    @commands.command(
+        self_bot=False, 
+        brief='Play against the bot.', 
+        usage = ['h! play', None], 
+        description="".join(strings['play_desc']),
+        aliases = ['p'])
     @commands.cooldown(1, 2.0, type=commands.BucketType.channel)
     async def play(self, ctx):
-        """Play a Hand Cricket match against the bot using this command. The bot first prompts you for a toss and then the match begins.
-        You can also use this command in Direct messages."""
+        
         if ctx.channel.id in self.bot.games: return await ctx.send(f"A game is already running here.")
         to_decline = check_for_other_games(ctx.bot, ctx.author)
         if to_decline == True:
@@ -67,9 +72,10 @@ class Default(commands.Cog):
             choice = random.choice(['batting', 'bowling'])
 
             player_turn = 'batting' if choice == 'bowling' else 'bowling'
-            bot_msg = f"I've decided to let you **{choice}**.\n"
+            bot_msg = f"I've decided to let you **{player_turn}**.\n" #{choice}
 
         game.player_turn = player_turn
+        l3as = deque(['','',''], maxlen=3)
 
         await ctx.send(bot_msg + "Alrighty! let the game begin!"); 
         await asyncio.sleep(3)
@@ -84,13 +90,22 @@ class Default(commands.Cog):
             try:
                 message_3 = await self.bot.wait_for('message', timeout=120, check=check03)
             except asyncio.TimeoutError:
-                if ctx.channel.id not in self.bot.games: return
+                if ctx.channel.id not in self.bot.games or game.game_id != self.bot.games[ctx.channel.id].game_id: return
                 await ctx.send("No response received for 120 seconds, forfeiting the match. The game was a no result.")
                 return self.bot.games.pop(ctx.channel.id)
 
-            if ctx.channel.id not in self.bot.games: return
+            if ctx.channel.id not in self.bot.games or game.game_id != self.bot.games[ctx.channel.id].game_id: return
             pl_msg = int(message_3.content)
-            bot_msg = random.randint(0,6)
+            l3as.append(pl_msg)
+            if l3as[0] == l3as[1] == l3as[2]:
+                if player_turn == 'batting':
+                    bot_msg = pl_msg
+                elif player_turn == 'bowling': 
+                    _d = [0,1,2,3,4,5,6]
+                    _d.remove(pl_msg)
+                    bot_msg = random.choice(_d)
+            else:
+                bot_msg = random.randint(0,6)
 
             if pl_msg != bot_msg:
 
@@ -114,6 +129,7 @@ class Default(commands.Cog):
                 break
 
         game.innings = Innings.TWO
+        l3as = deque(['','',''], maxlen=3)
         await asyncio.sleep(3)
         await ctx.send("Innings 2 has started! start sending your actions, send a number between 0 - 6 in this channel.")
 
@@ -122,13 +138,22 @@ class Default(commands.Cog):
             try: 
                 message_3 = await self.bot.wait_for('message', timeout=120, check=check03)
             except asyncio.TimeoutError: 
-                if ctx.channel.id not in self.bot.games: return
+                if ctx.channel.id not in self.bot.games or game.game_id != self.bot.games[ctx.channel.id].game_id: return
                 await ctx.send("No response received for 120 seconds, forfeiting the match. The game was a no result.")
                 return self.bot.games.pop(ctx.channel.id)
 
-            if ctx.channel.id not in self.bot.games: return
+            if ctx.channel.id not in self.bot.games or game.game_id != self.bot.games[ctx.channel.id].game_id: return
             pl_msg = int(message_3.content)
-            bot_msg = random.randint(0,6)
+            l3as.append(pl_msg)
+            if l3as[0] == l3as[1] == l3as[2]:
+                if player_turn == 'batting':
+                    _d = [0,1,2,3,4,5,6]
+                    _d.remove(pl_msg)
+                    bot_msg = random.choice(_d)
+                elif player_turn == 'bowling': 
+                    bot_msg = pl_msg
+            else:
+                bot_msg = random.randint(0,6)
 
             if pl_msg != bot_msg:
 
@@ -186,15 +211,17 @@ class Default(commands.Cog):
         embed.colour = MAYABLUE
         await ctx.send(embed=embed)
         self.bot.games.pop(ctx.channel.id)
+        self.bot.get_cog("GlobalEvents").insert_data_in_events(game) 
         return await log_game(ctx, type=GameType.SINGLE)
         
-    @commands.command(aliases=['chall'], brief='Challenge someone to play.', 
-    usage=['h! challenge | chall <Member tag>', ['h!challenge @SAMIR', 'h!chall @SAMIR']])
+    @commands.command(
+        aliases=['chall'], brief='Challenge someone to play.', 
+        usage=['h! challenge | chall <Member tag>', ['h!challenge @SAMIR', 'h!chall @SAMIR']],
+        description="".join(strings['challenge_desc']))
     @commands.cooldown(1, 2.0, type=commands.BucketType.channel)
     @commands.guild_only()
     async def challenge(self, ctx, player: discord.Member):
-        """Challenge another member in the server for a 1 vs 1 Hand cricket match using this command."""
-
+        
         if player.id == ctx.author.id: return await ctx.send("Imagine playing yourself.")
         elif player.id == ctx.bot.user.id: return await ctx.send(f"If you want to play with me, use {ctx.guild_prefix}play command.")
         elif player.bot == True: return await ctx.send(f'I can\'t play with other bots. Choose a human.')
@@ -274,38 +301,46 @@ class Default(commands.Cog):
                 game.stats[message_5.author.id]['last_action'] = int(message_5.content.lower())
 
             except asyncio.TimeoutError: 
-                if ctx.channel.id not in self.bot.games: return
+                if ctx.channel.id not in self.bot.games or game.game_id != self.bot.games[ctx.channel.id].game_id: return
                 if game.stats['curr_batsman']['player'].id in participants_ids: 
                     game.stats['curr_batsman']['last_action'] = random.randint(0,6)
-                    try: await game.stats['curr_batsman']['player'].send('You didn\'t respond in time so i rolled a random number for you.')
+                    try: await send_message(bot=self.bot, ctx=None, user=game.stats['curr_batsman']['player'],
+                    content='You didn\'t respond in time so i rolled a random number for you.')
                     except Exception: pass
 
+                await asyncio.sleep(0.5)
                 if game.stats['curr_bowler']['player'].id in participants_ids:
                     game.stats['curr_bowler']['last_action'] = random.randint(0,6)
-                    try: await game.stats['curr_bowler']['player'].send('You didn\'t respond in time so i rolled a random number for you.')
+                    try: await send_message(bot=self.bot, ctx=None, user=game.stats['curr_bowler']['player'],
+                    content='You didn\'t respond in time so i rolled a random number for you.')
                     except Exception: pass
 
-            if ctx.channel.id not in self.bot.games: return
+            if ctx.channel.id not in self.bot.games or game.game_id != self.bot.games[ctx.channel.id].game_id: return
             if game.stats['curr_batsman']['last_action'] != game.stats['curr_bowler']['last_action']:
 
                 game.stats['curr_batsman']['runs'] += game.stats['curr_batsman']['last_action']
                 game.stats['curr_batsman']['balls'] += 1
 
-                await ctx.author.send(f"Opponent's last action -> **{game.stats[player.id]['last_action']}**"
+                await send_message(bot=self.bot, ctx=None, user=ctx.author, content=f"Opponent's last action -> **{game.stats[player.id]['last_action']}**"
                     "\n`Innings 1 score:  {runs} ({balls})`".format(**game.stats['curr_batsman']))
-                await player.send(f"Opponent's last action -> **{game.stats[ctx.author.id]['last_action']}**"
+
+                await asyncio.sleep(0.5)
+                await send_message(bot=self.bot, ctx=None, user=player, content=f"Opponent's last action -> **{game.stats[ctx.author.id]['last_action']}**"
                     "\n`Innings 1 score:  {runs} ({balls})`".format(**game.stats['curr_batsman']))
                 participants_ids = [ctx.author.id, player.id]
 
             elif game.stats['curr_batsman']['last_action'] == game.stats['curr_bowler']['last_action']:
 
                 game.stats['curr_batsman']['balls'] += 1
-                await game.stats['curr_batsman']['player'].send(
-                    f"You are out! \nOpponent's last action -> **{game.stats['curr_bowler']['last_action']}**")
-                await game.stats['curr_bowler']['player'].send(
-                    f"Opponent is out! \nOpponent's last action -> **{game.stats['curr_batsman']['last_action']}**")
+                await send_message(bot=self.bot, ctx=None, user=game.stats['curr_batsman']['player'],
+                content=f"You are out! \nOpponent's last action -> **{game.stats['curr_bowler']['last_action']}**")
+
+                await asyncio.sleep(0.5)
+                await send_message(bot=self.bot, ctx=None, user=game.stats['curr_bowler']['player'],
+                content=f"Opponent is out! \nOpponent's last action -> **{game.stats['curr_batsman']['last_action']}**")
 
                 _target = game.stats['curr_batsman']['runs']+1
+                await asyncio.sleep(0.5)
                 await ctx.send('\n\n'.join(
                                 [f"**{game.stats['curr_batsman']['player'].name}**  is out!",
                                 f"Final Score  ->  **{game.stats['curr_batsman']['runs']} ({game.stats['curr_batsman']['balls']})**",
@@ -331,18 +366,21 @@ class Default(commands.Cog):
                 game.stats[message_5.author.id]['last_action'] = int(message_5.content.lower())
 
             except asyncio.TimeoutError: 
-                if ctx.channel.id not in self.bot.games: return
+                if ctx.channel.id not in self.bot.games or game.game_id != self.bot.games[ctx.channel.id].game_id: return
                 if game.stats['curr_batsman']['player'].id in participants_ids: 
                     game.stats['curr_batsman']['last_action'] = random.randint(0,6)
-                    try: await game.stats['curr_batsman']['player'].send('You didn\'t respond in time so i rolled a random number for you.')
+                    try: await send_message(bot=self.bot, ctx=None, user=game.stats['curr_batsman']['player'],
+                    content='You didn\'t respond in time so i rolled a random number for you.')
                     except Exception: pass
 
+                await asyncio.sleep(0.5)
                 if game.stats['curr_bowler']['player'].id in participants_ids:
                     game.stats['curr_bowler']['last_action'] = random.randint(0,6)
-                    try: await game.stats['curr_bowler']['player'].send('You didn\'t respond in time so i rolled a random number for you.')
+                    try: await send_message(bot=self.bot, ctx=None, user=game.stats['curr_bowler']['player'],
+                    content='You didn\'t respond in time so i rolled a random number for you.')
                     except Exception: pass
-
-            if ctx.channel.id not in self.bot.games: return
+                    
+            if ctx.channel.id not in self.bot.games or game.game_id != self.bot.games[ctx.channel.id].game_id: return
             if game.stats['curr_batsman']['last_action'] != game.stats['curr_bowler']['last_action']:
 
                 game.stats['curr_batsman']['runs'] += game.stats['curr_batsman']['last_action']
@@ -358,23 +396,29 @@ class Default(commands.Cog):
                     text = "\n\nScore has been chased!\nFinal Score  ->  **{runs}**  **({balls})**".format(**game.stats['curr_batsman'])
                     to_author += text
                     to_player += text
-                    await ctx.author.send(to_author)
-                    await player.send(to_player)
+                    await send_message(bot=self.bot, ctx=None, user=ctx.author, content=to_author)
+                    await asyncio.sleep(0.5)
+                    await send_message(bot=self.bot, ctx=None, user=player, content=to_player)
                     innings_2_runs = game.stats['curr_batsman']['runs']; 
                     break
 
                 else: 
-                    await ctx.author.send(to_author)
-                    await player.send(to_player)
+                    await send_message(bot=self.bot, ctx=None, user=ctx.author, content=to_author)
+                    await asyncio.sleep(0.5)
+                    await send_message(bot=self.bot, ctx=None, user=player, content=to_player)
                     participants_ids = [ctx.author.id, player.id]
                     continue
 
             elif game.stats['curr_batsman']['last_action'] == game.stats['curr_bowler']['last_action']:
 
                 game.stats['curr_batsman']['balls'] += 1
-                await game.stats['curr_batsman']['player'].send(f"You are out! \nOpponent's last action -> **{game.stats['curr_bowler']['last_action']}**")
-                await game.stats['curr_bowler']['player'].send(f"Opponent is out! \nOpponent's last action -> **{game.stats['curr_batsman']['last_action']}**")
+                await send_message(bot=self.bot, ctx=None, user=game.stats['curr_batsman']['player'], 
+                content=f"You are out! \nOpponent's last action -> **{game.stats['curr_bowler']['last_action']}**")
+                await asyncio.sleep(0.5)
+                await send_message(bot=self.bot, ctx=None, user=game.stats['curr_bowler']['player'], 
+                content=f"Opponent is out! \nOpponent's last action -> **{game.stats['curr_batsman']['last_action']}**")
 
+                await asyncio.sleep(0.5)
                 await ctx.send('\n\n'.join(
                                     [f"**{game.stats['curr_batsman']['player'].name}** is out!",
                                     f"Final Score  ->  **{game.stats['curr_batsman']['runs']} ({game.stats['curr_batsman']['balls']})**"]
@@ -412,9 +456,8 @@ class Default(commands.Cog):
         embed.colour = MAYABLUE
         await ctx.send(embed=embed)
         self.bot.games.pop(ctx.channel.id)
-        return await log_game(ctx, GameType.DOUBLE); 
-        return        
-
+        self.bot.get_cog("GlobalEvents").insert_data_in_events(game)
+        return await log_game(ctx, GameType.DOUBLE)
 
 def setup(bot):
     bot.add_cog(Default(bot))

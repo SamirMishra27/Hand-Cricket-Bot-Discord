@@ -2,6 +2,7 @@ from utils import *
 from time import time
 from os import remove
 from asyncio import sleep
+from random import randint
 
 from discord.ext.commands import Context
 from discord import Embed, Forbidden, File, Member
@@ -17,6 +18,7 @@ class MultiplayerGame:
         self.type = GameType.MULTI
         self.created_at = None
         self.host = None
+        self.game_id = randint(4444, 7777)
         self.innings = 0
         self.game_started = False
         self.shuffled = False
@@ -25,6 +27,7 @@ class MultiplayerGame:
         self.channel = ctx.channel
         self.bot = bot
         self.result = None
+        self.is_updating = False
 
         self.players: list = []
         self.TeamA: list = []
@@ -38,6 +41,7 @@ class MultiplayerGame:
         self.bowling_team = None
         self.batting_team_stats = {}
         self.bowling_team_stats = {}
+        self.team_settings = { 'Team A name':'Team A' , 'Team B name':'Team B' }
 
     @classmethod
     def create(cls, ctx, bot):
@@ -53,10 +57,14 @@ class MultiplayerGame:
 
         else:
             diff = time() - self.created_at
-            if diff > 15 * 60:
-                await self.channel.send("Match has been abandoned due to taking too long to start.")
-                self.bot.games.pop(self.channel.id)
-                return
+            if diff > 15 * 60:## # 
+                try:
+                    await self.channel.send("Match has been abandoned due to taking too long to start.")
+                except Exception as e:
+                    return
+                finally:
+                    self.bot.games.pop(self.channel.id)
+
 
             else: return
 
@@ -64,7 +72,7 @@ class MultiplayerGame:
         
         objstr = ''.join([f'Type={self.type} {self.type.value}, created_at={self.created_at}, host={self.host}, ',
                         f'game_started={self.game_started}, shuffled={self.shuffled}, bot_count={self.bot_count},'
-                        f'overs={self.overs}, channel={self.channel}, bot={self.bot}, players, TeamA, TeamB,',
+                        f'overs={self.overs}, innings={self.innings} channel={self.channel}, bot={self.bot}, players, TeamA, TeamB,',
                         f'toss_winner={self.toss_winner}, TeamA_turn={self.TeamA_turn}, curr_batsman={self.curr_batsman}, ',
                         f'curr_bowlers={self.curr_bowler}, batting_team={self.batting_team}, bowling_team={self.bowling_team}'
         ]) 
@@ -86,7 +94,7 @@ class MultiplayerGame:
                                  'is_out': False,
                                 }
 
-        dict_a.update( {'name': 'Team A', 'runs': 0, 'balls': 0, 'wickets': 0} )
+        dict_a.update( {'name': self.team_settings['Team A name'], 'runs': 0, 'balls': 0, 'wickets': 0} )
         self.TeamA = dict_a
 
         for player in self.TeamB:
@@ -101,7 +109,7 @@ class MultiplayerGame:
                                  'is_out': False,
                                 }
 
-        dict_b.update( {'name': 'Team B', 'runs': 0, 'balls': 0, 'wickets': 0} )
+        dict_b.update( {'name': self.team_settings['Team B name'], 'runs': 0, 'balls': 0, 'wickets': 0} )
         self.TeamB = dict_b
         self.batting_team = self.TeamA if self.TeamA_turn == 'bat' else self.TeamB
         self.bowling_team = self.TeamA if self.TeamA_turn == 'bowl' else self.TeamB
@@ -123,21 +131,21 @@ class MultiplayerGame:
 
             if self.TeamA['runs'] > self.TeamB['runs']:
                 diff = self.TeamA['runs'] - self.TeamB['runs']
-                self.result = f"Team A won the game by {diff} run{pz(diff)}." + " 🎊"
+                self.result = f"{self.team_settings['Team A name']} won the game by {diff} run{pz(diff)}." + " 🎊"
 
             elif self.TeamA['runs'] < self.TeamB['runs']:
                 diff = len(self.TeamB) - self.TeamB['wickets'] - 4
-                self.result = f"Team B won the game by {diff} wicket{pz(diff)}." + " 🎊"
+                self.result = f"{self.team_settings['Team B name']} won the game by {diff} wicket{pz(diff)}." + " 🎊"
 
         elif self.TeamA_turn == 'bowl': 
 
             if self.TeamA['runs'] > self.TeamB['runs']:
                 diff = len(self.TeamA) - self.TeamA['wickets'] - 4
-                self.result = f"Team A won the game by {diff} wicket{pz(diff)}." + " 🎊"
+                self.result = f"{self.team_settings['Team A name']} won the game by {diff} wicket{pz(diff)}." + " 🎊"
 
             elif self.TeamA['runs'] < self.TeamB['runs']:
                 diff = self.TeamB['runs'] - self.TeamA['runs']
-                self.result = f"Team B won the game by {diff} run{pz(diff)}." + " 🎊"
+                self.result = f"{self.team_settings['Team B name']} won the game by {diff} run{pz(diff)}." + " 🎊"
 
         return True
 
@@ -154,13 +162,15 @@ class MultiplayerGame:
         await sleep(0.3)
         if who == 'BATSMAN':
             try: 
-                await self.curr_batsman['player'].send(msg)
+                # await self.curr_batsman['player'].send(msg)
+                await send_message(bot=self.bot, ctx=None, user=self.curr_batsman['player'], content=msg)
             except Forbidden: 
                 return
 
         elif who == 'BOWLER':
             try: 
-                await self.curr_bowler['player'].send(msg)
+                # await self.curr_bowler['player'].send(msg)
+                await send_message(bot=self.bot, ctx=None, user=self.curr_bowler['player'], content=msg)
             except Forbidden:
                 return
 
@@ -316,15 +326,18 @@ class MultiplayerGame:
             await self.channel.send(file=file)
         except Forbidden:
             await self.make_scoreboard()
+        sc.close()
         return remove('temporary/{}.jpg'.format(self.channel.id))
 
 class SingleGame:
     def __init__(self, ctx: Context):
-        self.player = ctx.author.id
-        self.player_turn = None
         self.type = GameType.SINGLE
-        self.game_started = False
+        self.player = ctx.author
+        self.channel = ctx.channel
+        self.player_turn = None
+        self.game_id = randint(4444, 7777)
         
+        self.game_started = False
         self.innings = None
         self.innings1_runs, self.innings1_bowls, = 0, 0,
         self.innings2_runs, self.innings2_bowls = 0, 0
@@ -337,9 +350,10 @@ class SingleGame:
 class DoubleGame:
     def __init__(self, ctx: Context, player: Member):
         self.type = GameType.DOUBLE
-        self.players = [ctx.author.id, player.id]
+        self.players = [ctx.author, player]
+        self.channel = ctx.channel
         self.challenger_turn = None
-        self.channel = ctx.channel.id
+        self.game_id = randint(4444, 7777)
 
         self.game_started = False
         self.innings = None
@@ -360,3 +374,73 @@ class DoubleGame:
     def create(cls, ctx, player):
         new_game = cls(ctx=ctx, player=player)
         return new_game
+
+class RunRaceGame:
+    def __init__(self, ctx: Context, bot):
+        self.type = GameType.RUNRACE
+        self.created_at = None
+        self.started_at = None
+        self.host = None
+        self.game_id = random.randint(4444,7777)
+        self.game_started = False
+        self.channel = ctx.channel
+        self.overs = None
+        self.bot_count = 0
+        self.bot = bot
+
+        self.players = []
+        self.player_stats = {}
+
+    @classmethod
+    def create(cls, ctx, bot):
+        new_game = cls(ctx=ctx, bot=bot)
+        new_game.players.append(ctx.author)
+        new_game.created_at = time()
+        new_game.host = ctx.author.id
+        return new_game
+
+    async def update(self):
+        if self.game_started == True:
+            return
+
+        else:
+            diff = time() - self.created_at
+            if diff > 15 * 60:
+                try:
+                    await self.channel.send("Match has been abandoned due to taking too long to start.")
+                except Exception as e:
+                    return
+                finally:
+                    self.bot.games.pop(self.channel.id)
+
+            else: return
+
+    async def initialise(self):
+        self.game_started = True
+        self.started_at = time()
+        for player in self.players:
+            self.player_stats[player.id] = {
+                'player': player,
+                'runs': 0,
+                'balls': 0,
+                'last_action': 0,
+                'is_human': True if len(str(player.id)) > 4 else False,
+                'is_out': False
+            }
+        return True
+
+    async def send_message(self, player_id: int, message :str):
+        try:
+            await send_message(bot=self.bot, ctx=None, user=self.player_stats[player_id]['player'], content=message)
+        except Forbidden:
+            return
+
+    def get_position(self, player_id):
+        position = 1
+        for player in sorted(self.player_stats.items(), key=lambda x: (x[1]['runs'], x[1]['balls']), reverse=True):
+            if player[1]['player'].id == player_id:
+                return position
+                
+            else:
+                position += 1 
+                continue

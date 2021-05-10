@@ -1,6 +1,9 @@
 """
     Copyright © 2020-2021 SamirMishra27
+    all rights reserved
     This file is a part of HandCricket project
+
+    For any futher questions, contact owner at Discord @SAMIR#7795
 """
 
 
@@ -9,33 +12,52 @@ from discord.ext import commands
 
 from datetime import datetime
 from os import getenv
-from utils import FBot, CustomHelpCommand, CustomContext, GameType, check_for_other_games
+from utils import *
 import traceback
-import sqlite3
+import aiosqlite
+import time
+import asyncio
+import logging
 
-# from keep_alive import keep_alive
+logging.basicConfig(level=logging.INFO)
 
-# default_prefix = "h!", "H!"
+# default_prefix = "h!", "H!" # ", "hc "default_prefix[2], 
 default_prefix = ("..", "...")
 
 def get_prefix(bot, message: discord.Message):
-    bot_id = bot.user.id
+    async def __get_prefix(bot, message: discord.Message):
 
-    if message.guild is None:
-        server_prefix = ''
-    
-    else:
-        try:
-            with bot.db as conn:
-                cur = conn.cursor()
-                cur.execute("SELECT * FROM prefixes WHERE guild_id == (?)", (message.guild.id,))
-                server_prefix = cur.fetchone()[1]
-        except Exception as e:
-            print("Command Query Error! -> ", e); traceback.print_exc()
-            server_prefix = default_prefix[0]
+        bot_id = bot.user.id
 
-    list_prefixes = [f'<@{bot_id}> ', f'<@!{bot_id}> ', default_prefix[0], default_prefix[1], server_prefix]
-    return tuple(list_prefixes)
+        if message.guild is None:
+            server_prefix = ''
+        
+        else:
+            try:
+                server_prefix = bot.guild_settings_cache[message.guild.id]['prefix']
+            except Exception as e:
+                print("Command Query Error! -> ", e); traceback.print_exc()
+                server_prefix = default_prefix[0]
+
+                if bot.db == None:
+                    server_prefix = default_prefix[0]
+
+                else:
+                    cursor = await bot.db.execute_fetchall("SELECT guild_id, prefix FROM prefixes WHERE guild_id == (?);", (message.guild.id,))
+
+                    if len(cursor) == 0:
+                        to_enter = (message.guild.id, default_prefix[0])
+                        await bot.db.execute_insert("INSERT INTO prefixes(guild_id, prefix) VALUES (?,?);", to_enter)
+                        await bot.db.commit()
+                        server_prefix = default_prefix[0]
+                    else:
+                        server_prefix = cursor[0][1]
+                        bot.guild_settings_cache[message.guild.id] = {'prefix':default_prefix[0]}
+
+        list_prefixes = [f'<@{bot_id}> ', f'<@!{bot_id}> ', default_prefix[0], default_prefix[1], server_prefix]
+        return list_prefixes
+    return __get_prefix(bot, message)
+
 
 ClientIntents = discord.Intents(guilds= True, members=True, bans=False, 
                                 emojis=True, integrations=False, webhooks=False, 
@@ -49,31 +71,31 @@ class Client(commands.Bot):
             case_insensitive = True,
             description = "I host single and multiplayer games for Hand Cricket!",
             intents = ClientIntents,
-            max_messages = 100,
+            max_messages = 200,
             self_bot = False,
             owner_id = 278094147901194242,
-            allowed_mentions = discord.AllowedMentions(everyone=False, users=True, roles=True, replied_user=True),
+            allowed_mentions = discord.AllowedMentions(everyone=False, users=True, roles=True),
             activity = discord.Activity(type=discord.ActivityType.listening, name=f'{self.prefix}help'),
-            help_command = CustomHelpCommand()
+            # help_command = CustomHelpCommand()
         )
     
-        self.version = '2.0' 
+        self.version = '3.0'
         self.games = {}
-        self.db = sqlite3.connect('data.db')
+        self.db = None 
         self.debug_channel = 753194446710898698
-        self.bot_extensions = ['defaultcog','ownercog','misccog','eventloops','multiplayer'] 
+        self.bot_extensions = ['defaultcog','ownercog','multiplayer','eventloops',
+                                'misccog','runrace','general','helpcommand',  ] 
         self.launched_at = None
+
         self.invite_link = 'https://discord.com/api/oauth2/authorize?client_id=753191385296928808&permissions=1144388672&scope=bot'
         self.support_server = 'https://discord.gg/Mb9s5sVkSz'
+
         self.topgg = 'https://top.gg/bot/753191385296928808'
         self.bfd = 'https://botsfordiscord.com/bot/753191385296928808'
+
         self.help_end_footer = 'For more help on a command, use {}help <command>'.format(self.prefix) +\
                             ' OR {}help <category> for more help about a specific category.'.format(self.prefix)
-
-    async def on_ready(self):
-        print("\n\nWe have successfully logged in as {0.user} \n".format(self) +\
-                "Discord.py version info: {}\n".format(discord.version_info) +\
-                "Discord.py version: {}\n".format(discord.__version__))
+        self.last_message_cache = {}
         
         ext_count = 0
         for extension in self.bot_extensions: 
@@ -81,11 +103,30 @@ class Client(commands.Bot):
                 self.load_extension(extension) 
                 print('loaded', extension)
                 ext_count += 1  
+
             except commands.ExtensionError as e: 
-                print('Extension {extension} could not be loaded:\n', e); traceback.print_exc(); 
+                print('Extension {extension} could not be loaded:\n', e); 
+                traceback.print_exc(); 
                 continue
         print(f"Loaded {ext_count} of {len(self.bot_extensions)} Cogs.")
-        return await self.get_channel(self.debug_channel).send("Successfully loaded all cogs.")
+
+    async def on_ready(self):
+        print("\n\nWe have successfully logged in as {0.user} \n".format(self) +\
+                "Discord.py version info: {}\n".format(discord.version_info) +\
+                "Discord.py version: {}\n".format(discord.__version__))
+
+        self.db = await aiosqlite.connect('data.db')
+        print("Succesfully established connection with database")
+
+        self.guild_settings_cache = {}
+        prefix_data = await self.db.execute_fetchall("SELECT guild_id, prefix FROM prefixes;")
+        for row in prefix_data:
+            self.guild_settings_cache[row[0]] = {'prefix': row[1]}
+
+        print("Guild settings successfully cached.")
+        self.load_extension('globalevents')
+        print("Loaded globalevents cog.")
+        return ##await self.get_channel(self.debug_channel).send("Successfully loaded all cogs.")
 
     @property
     def send_invite_link(self):
@@ -113,6 +154,7 @@ class Client(commands.Bot):
 
     async def get_context(self, message):
         return await super().get_context(message, cls=CustomContext)
+        # One manual change in bot.py. Line 862.
 
     async def on_command_error(self, context, exception):
         if isinstance(exception, commands.CommandNotFound): 
@@ -125,61 +167,104 @@ class Client(commands.Bot):
             return
 
         elif isinstance(exception, commands.CommandOnCooldown): 
-            return await context.send(":x: Command on cooldown, try after {} seconds.".format(round(exception.retry_after)))
+            return await context.send(
+                embed = discord.Embed(color = BASICRED,
+                description = ":x: Command on cooldown, try after {} seconds.".format(round(exception.retry_after)))
+            )
 
         elif isinstance(exception, commands.MaxConcurrencyReached): 
             return await context.send("Please wait!")
 
         elif isinstance(exception, discord.InvalidArgument):
-            return await context.send(exception)
+            return await context.send(
+                embed = discord.Embed(color = BASICRED,
+                description = exception)
+            )
 
         elif isinstance(exception, commands.MissingRequiredArgument):
-            return await context.send(":x: Missing one or all arguements.")
+            return await context.send(
+                embed = discord.Embed(color = BASICRED,
+                description =f":x: Missing one or all arguements. \n\nCommand Usage:\n```{context.command.usage[0]}```")
+            )
 
         elif isinstance(exception, commands.ArgumentParsingError):
-            return await context.send(":x: Invalid arguements.")
+            return await context.send(
+                embed = discord.Embed(color = BASICRED,
+                description =f":x: Invalid arguements. \n\nCommand Usage:\n```{context.command.usage[0]}```")
+            )
 
         elif isinstance(exception, commands.BadArgument):
-            return await context.send(":x: Invalid arguements.")
+            return await context.send(
+                embed = discord.Embed(color = BASICRED,
+                description =f":x: Invalid arguements. \n\nCommand Usage:\n```{context.command.usage[0]}```")
+            )
 
         elif isinstance(exception, commands.TooManyArguments):
-            return await context.send(":x: Too many arguements were given.")
+            return await context.send(
+                embed = discord.Embed(color = BASICRED,
+                description =f":x: Too many arguements were given. \n\nCommand Usage:\n```{context.command.usage[0]}```")
+            )
 
         elif isinstance(exception, commands.MessageNotFound):
-            return await context.send("Member not found!")
+            return await context.send(
+                embed = discord.Embed(color = BASICRED,
+                description ="Member not found!")
+            )
 
         elif isinstance(exception, commands.UserNotFound):
-            return await context.send("User not found!")
+            return await context.send(
+                embed = discord.Embed(color = BASICRED,
+                description ="User not found!")
+            )
 
         elif isinstance(exception, commands.ChannelNotFound): 
             return
 
         elif isinstance(exception, commands.BadUnionArgument):
-            return await context.send(':x: Invalid arguements.')
+            return await context.send(
+                embed = discord.Embed(color = BASICRED,
+                description =f':x: Invalid arguements. \n\nCommand Usage:\n```{context.command.usage[0]}```')
+            )
 
         elif isinstance(exception, commands.MissingPermissions):
-            return await context.send(':x: Missing permissions! {}'.format(exception.missing_perms))
+            return await context.send(
+                embed = discord.Embed(color = BASICRED,
+                description =':x: Missing permissions! {}'.format(exception.missing_perms))
+            )
 
-        else: return await super().on_command_error(context, exception)
+        # elif isinstance(exception, commands.Forbidden):
+        #     return
+
+        else: 
+            print("Print an error occured with command named", context.invoked_with, "guild_id",
+            context.guild.id if context.guild is not None else "None", 
+            self.games.get(context.channel.id, None).type if self.games.get(context.channel.id, None) is not None else "None")
+            if self.games.get(context.channel.id, None) is not None and self.games.get(context.channel.id, None).type == GameType.MULTI:
+                print(self.games.get(context.channel.id, None).__str__())
+            return await super().on_command_error(context, exception)
 
     async def on_reaction_add(self, reaction, user):
         if user.bot == True:
             return
-        if not str(reaction.emoji) == '✅':
+        if not str(reaction.emoji) == misc_emojis['rtj']:
             return
         if reaction.message.channel.id not in self.games:
             return
         game = self.games[reaction.message.channel.id]
+        if game.type not in (GameType.MULTI, GameType.RUNRACE):
+            return
         to_decline = check_for_other_games(self, user)
         if to_decline == True: return
         if user not in game.players:
             game.players.append(user)
-            if game.shuffled == True:
-                if len(game.TeamA) < len(game.TeamB):
-                    game.TeamA.append(user)
-                else:
-                    game.TeamB.append(user)
+            if game.type == GameType.MULTI:
+                if game.shuffled == True:
+                    if len(game.TeamA) < len(game.TeamB):
+                        game.TeamA.append(user)
+                    else:
+                        game.TeamB.append(user)
             return await game.channel.send(f"**{user.name} has joined the game. ✅**")
+
         else: return 
 
     async def on_guild_channel_delete(self, channel):
@@ -189,25 +274,23 @@ class Client(commands.Bot):
 
     async def on_guild_join(self, guild: discord.Guild):
         to_enter = (guild.id, default_prefix[0])
-        with self.db as conn:
-            cur = conn.cursor()
-            cur.execute("INSERT INTO prefixes VALUES (?,?)", to_enter)
-            self.db.commit()
+        await self.db.execute_insert("INSERT INTO prefixes(guild_id, prefix) VALUES (?,?);", to_enter)
+        await self.db.commit()
+        self.guild_settings_cache[guild.id] = {'prefix': default_prefix[0]}
 
     async def on_guild_remove(self, guild: discord.Guild):
         for channel in guild.channels:
             if channel.id in self.games:
                 self.games.pop(channel.id) 
 
-        with self.db as conn:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM prefixes WHERE guild_id == (?)", (guild.id,))
-            self.db.commit()
+        await self.db.execute("DELETE FROM prefixes WHERE guild_id == (?);", (guild.id,))
+        await self.db.commit()
+        self.guild_settings_cache.pop(guild.id)
         return
 
     async def on_member_remove(self, member: discord.Member):
         for game in self.games.values():
-            if game.type in (GameType.SINGLE, GameType.DOUBLE):
+            if game.type in (GameType.SINGLE, GameType.DOUBLE, GameType.RUNRACE):
                 continue
             if member in game.players:
                 game.players.remove(member)
@@ -243,12 +326,23 @@ class Client(commands.Bot):
                     elif member.id == game.curr_bowler['player'].id: game.curr_bowler = game.TeamB[BOT.id]
                     else: pass
 
-                return await game.channel.send(
-                    f"**{member.name}** has left the server, therefore player has been kicked"
-                    f"and has been replaced by {BOT.mention}")
+                # return await game.channel.send(
+                #     f"**{member.name}** has left the server, therefore player has been kicked"
+                #     f"and has been replaced by {BOT.mention}")
+                return await send_message(bot=self, ctx=game.channel, content=
+                f"**{member.name}** has left the server, therefore player has been kicked"
+                f"and has been replaced by {BOT.mention}")    
 
+    async def close(self):
+        for game in self.games.values():
+            await game.channel.send(":warning: All ongoing matches has been abandoned due to bot being shut down! Apologies for the inconvenience.")
+        self.games.clear()
+        self.unload_extension("globalevents")
+        await asyncio.sleep(0.25)
+
+        await self.db.commit()
+        await self.db.close()
+        return await super().close()
 
 if __name__ == "__main__":
-    Token = getenv('TOKEN')
-    keep_alive()
-    Client().run(Token, reconnect=True)
+    Client().run(..., reconnect=True)

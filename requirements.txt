@@ -9,7 +9,7 @@ chardet==3.0.4
 colorama==0.4.3
 dblpy==0.4.0
 discord-interactive==4.0
-discord.py==1.6.0
+git+git://github.com/Rapptz/discord.py#d30fea5b0dcba9cd130026b56ec01e78bd788aff
 idna==2.10
 isort==5.4.2
 lazy-object-proxy==1.4.3

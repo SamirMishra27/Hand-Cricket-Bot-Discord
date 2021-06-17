@@ -18,15 +18,16 @@ import asyncio
 import logging
 from json import loads
 
-logging.basicConfig(level=logging.INFO)
-config = json.load("config.json")
+with open('config.json') as f:
+    logging.basicConfig(level=logging.INFO)
+    config = json.load(f)
 
-if config['stage'] == 'Prod':
-    default_prefix = config['default_prefix']  
-    token = config['token']
-else: 
-    default_prefix = config['beta_prefix']
-    token = config['beta_token']
+    if config['stage'] == 'Prod':
+        default_prefix = config['default_prefix']  
+        token = config['token']
+    else: 
+        default_prefix = config['beta_prefix']
+        token = config['beta_token']
 
 def get_prefix(bot, message: discord.Message):
     async def __get_prefix(bot, message: discord.Message):

@@ -1,0 +1,8 @@
+{
+    "stage": "Beta/Prod",
+    "default_prefix": ["h!", "H!"],
+    "beta_prefix": [".", ".."],
+    "token": "Your production bot token",
+    "beta_token": "Your development bot token",
+    "topgg_token": ""
+}

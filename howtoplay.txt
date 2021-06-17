@@ -1,0 +1,47 @@
+**How to play Hand Cricket? **
+
+First there's a batsman and a bowler. The goal of the batsman is to score as many runs as possible against the bowler. Once the batsman gets out, the bowler now becomes the batsman and has to chase those target runs against the bowler.
+If the current batsman gets out and the score is less than the target, the bowler wins, else the batsman wins.
+The overall goal of the game is the team who scores more runs wins!
+
+**How do you get batsman out?**
+In case of 2 player game, both the batsman and bowler will randomly send a number, if both players sent same numbers, the batsman is out! and it's a wicket for the bowler.
+
+**How do batsman score runs?**
+If same number do not comes, the batsman will add the number he sent to his total runs scored.
+E.g: batsman's socre is 40, batsman sent 4 and bowler sent 6, so batsman score will be now 44.
+
+**Rules?**
+You must only roll a number between 0 and 6, any other number will be invalid.
+All other existing rules of Cricket will apply.
+
+Reference: Here's a good explaination of how to play hand cricket in real life, for reference. <https://www.instructables.com/How-to-Play-Hand-Cricket/>
+
+**How to play Single player gamemode?**
+Use the command `play` and the bot will prompt you for a toss, which will decide who will bat first and who will bowl first.
+Let's say you won the toss and you choose to bat, your goal is to score as many runs as possible and not draw the same number the bot does, try thinking what number the bot will roll next?
+Once you get bowled out, your goal is now to stop the bot ( the bowler ) to chase the runs or else you'll lose!
+
+**How to play Player vs player?**
+Use the command `challenge` and tag the person you want to play with. Upon the person agreeing to play with you, the bot will prompt you both for the toss.
+After doing the toss and who will bat/bowl first, both the players should send their numbers in the bot's DMs.
+After the batsman is out, both the players change their roles and again send numbers in bot's DMs. Depending on the outcome, one of them wins!
+
+**How to play Multiplayer gamemode?**
+First step, create a game lobby using the command `create`. Now wait for other members to join. Once enough members join, use the `shuffle` command to shuffle the players into two teams, Team A and Team B. 
+Now the match host can swap the players between the teams to form the favourite team members want. Select the overs using `setovers` command and then do the toss between the team captains using `toss` command.
+Finally you can start the game using command `start`. One batsman will bat and one bowler will bowl at once. You can occasionally see the full match's status using `status` command.
+
+**Rules?**
+Batsman will bat until they are bowled out. BUT Bowler will bowl only 6 balls and then wait until their turn comes again.
+Bowler will change every 6 balls. When batsman is bowled out, their Team loses a wicket, and the Team keeps batting until their all wickets are lost.
+All other existing rules of Cricket will apply.
+
+**How to play Run Race gamemode?**
+Creating a run race game is very easy. First create the lobby using the command `runrace`. Wait for some people to join and once enough members join, start the game using the `start` command.
+Now everyone who is playing should start sending their actions to the bot privately. There is only batting and no bowling. Once everyone is bowled out, the player who scored the most runs wins the race!
+Additionally, you can set the number of wickets for each player in the game using command `setwickets`.
+
+**What are Global events?**
+Events where entire discord can participate by trying to contribute to the goal collectively. For example if the global goal is to reach 10000 runs, the players will just have to play the bot normally and score as many runs as they can.
+If the target is met, We win.

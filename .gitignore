@@ -1,0 +1,10 @@
+config.json
+roughcode.py
+data.db
+__pycache__/
+Thumbs.db
+temporary/
+discord/
+assets/
+.vscode
+.bash_history

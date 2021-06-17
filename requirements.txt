@@ -1,4 +1,6 @@
 aiohttp==3.6.2
+aiosqlite==0.16.1
+aiosqlite3==0.3.0
 astroid==2.4.2
 async-timeout==3.0.1
 attrs==20.2.0
@@ -20,6 +22,7 @@ ratelimiter==1.2.0.post0
 requests==2.25.1
 six==1.15.0
 toml==0.10.1
+typing-extensions==3.7.4.3
 urllib3==1.26.2
 wrapt==1.12.1
 yarl==1.5.1

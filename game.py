@@ -2,6 +2,9 @@ from utils import *
 from time import time
 from os import remove
 from asyncio import sleep
+from random import randint
+from collections import deque
+from datetime import datetime
 
 from discord.ext.commands import Context
 from discord import Embed, Forbidden, File, Member
@@ -17,6 +20,7 @@ class MultiplayerGame:
         self.type = GameType.MULTI
         self.created_at = None
         self.host = None
+        self.game_id = randint(4444, 7777)
         self.innings = 0
         self.game_started = False
         self.shuffled = False
@@ -25,6 +29,7 @@ class MultiplayerGame:
         self.channel = ctx.channel
         self.bot = bot
         self.result = None
+        self.is_updating = False
 
         self.players: list = []
         self.TeamA: list = []
@@ -38,6 +43,10 @@ class MultiplayerGame:
         self.bowling_team = None
         self.batting_team_stats = {}
         self.bowling_team_stats = {}
+        self.team_settings = { 'Team A name':'Team A' , 'Team B name':'Team B' }
+
+        self.players_queue = []
+        self.debounce = False
 
     @classmethod
     def create(cls, ctx, bot):
@@ -53,10 +62,14 @@ class MultiplayerGame:
 
         else:
             diff = time() - self.created_at
-            if diff > 15 * 60:
-                await self.channel.send("Match has been abandoned due to taking too long to start.")
-                self.bot.games.pop(self.channel.id)
-                return
+            if diff > 15 * 60: 
+                try:
+                    await self.channel.send("Match has been abandoned due to taking too long to start.")
+                except Exception as e:
+                    return
+                finally:
+                    self.bot.games.pop(self.channel.id)
+
 
             else: return
 
@@ -64,7 +77,7 @@ class MultiplayerGame:
         
         objstr = ''.join([f'Type={self.type} {self.type.value}, created_at={self.created_at}, host={self.host}, ',
                         f'game_started={self.game_started}, shuffled={self.shuffled}, bot_count={self.bot_count},'
-                        f'overs={self.overs}, channel={self.channel}, bot={self.bot}, players, TeamA, TeamB,',
+                        f'overs={self.overs}, innings={self.innings} channel={self.channel}, bot={self.bot}, players, TeamA, TeamB,',
                         f'toss_winner={self.toss_winner}, TeamA_turn={self.TeamA_turn}, curr_batsman={self.curr_batsman}, ',
                         f'curr_bowlers={self.curr_bowler}, batting_team={self.batting_team}, bowling_team={self.bowling_team}'
         ]) 
@@ -84,9 +97,13 @@ class MultiplayerGame:
                                  'last_action': 0,
                                  'is_human': True if len(str(player.id)) > 4 else False,
                                  'is_out': False,
+                                 'timeline': deque(['','','','','',''], maxlen=6),
+                                 'hattrick': False,
+                                 'duck': False,
+                                 'result': None
                                 }
 
-        dict_a.update( {'name': 'Team A', 'runs': 0, 'balls': 0, 'wickets': 0} )
+        dict_a.update( {'name': self.team_settings['Team A name'], 'runs': 0, 'balls': 0, 'wickets': 0} )
         self.TeamA = dict_a
 
         for player in self.TeamB:
@@ -99,9 +116,13 @@ class MultiplayerGame:
                                  'last_action': 0,
                                  'is_human': True if len(str(player.id)) > 4 else False,
                                  'is_out': False,
+                                 'timeline': deque(['','','','','',''], maxlen=6),
+                                 'hattrick': False,
+                                 'duck': False,
+                                 'result': None
                                 }
 
-        dict_b.update( {'name': 'Team B', 'runs': 0, 'balls': 0, 'wickets': 0} )
+        dict_b.update( {'name': self.team_settings['Team B name'], 'runs': 0, 'balls': 0, 'wickets': 0} )
         self.TeamB = dict_b
         self.batting_team = self.TeamA if self.TeamA_turn == 'bat' else self.TeamB
         self.bowling_team = self.TeamA if self.TeamA_turn == 'bowl' else self.TeamB
@@ -118,26 +139,45 @@ class MultiplayerGame:
 
         if self.TeamA['runs'] == self.TeamB['runs']:
             self.result = f"This match was a tie!" + " :handshake:"
+            TeamA_result = "TIE"
+            TeamB_result = "TIE"
 
         elif self.TeamA_turn == 'bat':
 
             if self.TeamA['runs'] > self.TeamB['runs']:
                 diff = self.TeamA['runs'] - self.TeamB['runs']
-                self.result = f"Team A won the game by {diff} run{pz(diff)}." + " 🎊"
+                self.result = f"{self.team_settings['Team A name']} won the game by {diff} run{pz(diff)}." + " 🎊"
+                TeamA_result = "WIN"
+                TeamB_result = "LOSS"
 
             elif self.TeamA['runs'] < self.TeamB['runs']:
                 diff = len(self.TeamB) - self.TeamB['wickets'] - 4
-                self.result = f"Team B won the game by {diff} wicket{pz(diff)}." + " 🎊"
+                self.result = f"{self.team_settings['Team B name']} won the game by {diff} wicket{pz(diff)}." + " 🎊"
+                TeamA_result = "LOSS"
+                TeamB_result = "WIN"
 
         elif self.TeamA_turn == 'bowl': 
 
             if self.TeamA['runs'] > self.TeamB['runs']:
                 diff = len(self.TeamA) - self.TeamA['wickets'] - 4
-                self.result = f"Team A won the game by {diff} wicket{pz(diff)}." + " 🎊"
+                self.result = f"{self.team_settings['Team A name']} won the game by {diff} wicket{pz(diff)}." + " 🎊"
+                TeamA_result = "WIN"
+                TeamB_result = "LOSS"
 
             elif self.TeamA['runs'] < self.TeamB['runs']:
                 diff = self.TeamB['runs'] - self.TeamA['runs']
-                self.result = f"Team B won the game by {diff} run{pz(diff)}." + " 🎊"
+                self.result = f"{self.team_settings['Team B name']} won the game by {diff} run{pz(diff)}." + " 🎊"
+                TeamA_result = "LOSS"
+                TeamB_result = "WIN"
+
+        for key, player in self.TeamA.items():
+            if key in ('name','runs','balls','wickets'):
+                continue
+            player['result'] = TeamA_result
+        for key, player in self.TeamB.items():
+            if key in ('name','runs','balls','wickets'):
+                continue
+            player['result'] = TeamB_result
 
         return True
 
@@ -154,13 +194,13 @@ class MultiplayerGame:
         await sleep(0.3)
         if who == 'BATSMAN':
             try: 
-                await self.curr_batsman['player'].send(msg)
+                await send_message(bot=self.bot, ctx=None, user=self.curr_batsman['player'], content=msg)
             except Forbidden: 
                 return
 
         elif who == 'BOWLER':
             try: 
-                await self.curr_bowler['player'].send(msg)
+                await send_message(bot=self.bot, ctx=None, user=self.curr_bowler['player'], content=msg)
             except Forbidden:
                 return
 
@@ -192,6 +232,8 @@ class MultiplayerGame:
 
     async def increment_runs(self):
 
+        _last_score = self.curr_batsman['runs']
+        self.curr_bowler['timeline'].append(self.curr_batsman['last_action'])
         self.curr_batsman['runs'] += self.curr_batsman['last_action']
         self.curr_batsman['balls'] += 1
         self.batting_team['runs'] += self.curr_batsman['last_action']
@@ -199,6 +241,9 @@ class MultiplayerGame:
 
         self.curr_bowler['runs_given'] += self.curr_batsman['last_action']
         self.curr_bowler['balls_given'] += 1
+        await check_for_milestone(
+            self.curr_batsman['player'].name, self.channel, _last_score, self.curr_batsman['runs'], self.bot
+        )
         return
 
     async def increment_wicket(self):
@@ -207,12 +252,19 @@ class MultiplayerGame:
         self.curr_batsman['is_out'] = True
         self.curr_bowler['balls_given'] += 1
         self.curr_bowler['wickets'] += 1
+        self.curr_bowler['timeline'].append("W")
 
         self.batting_team['balls'] += 1
         self.batting_team['wickets'] += 1
+        hattrick = await check_for_hattrick(  
+            self.curr_bowler['player'].name, self.curr_bowler['timeline'], self.channel, self.curr_bowler['wickets'], True, self.bot
+        )  
+        if hattrick == True:
+            self.curr_bowler['hattrick'] = True
+        if self.curr_batsman['runs'] == 0: self.curr_batsman['duck'] = True
         return
 
-    async def generate_scorecard_image(self):
+    async def generate_scorecard_image(self, footer: str):
 
         for keys in ('name','runs','balls','wickets'):
             self.bowling_team_stats[keys] = self.bowling_team.pop(keys)
@@ -312,51 +364,316 @@ class MultiplayerGame:
 
         sc.save('temporary/{}.jpg'.format(self.channel.id))
         file = File('temporary/{}.jpg'.format(self.channel.id))
-        try: 
-            await self.channel.send(file=file)
+        try:
+            await self.channel.send(
+                file=file,
+                embed=Embed(
+                    color=MAYABLUE, title="Result Scorecard"
+                ).set_image(url=f"attachment://{self.channel.id}.jpg"
+                ).set_footer(text=footer)
+            )
         except Forbidden:
             await self.make_scoreboard()
+        sc.close()
         return remove('temporary/{}.jpg'.format(self.channel.id))
 
+    async def retreive_match_data(self):
+        match_info = {}
+
+        for userid, player in self.TeamA.items():
+            if player['is_human'] == False:
+                continue
+
+            result = player['result']
+            runs_scored = player['runs']
+            balls_taken = player['balls']
+
+            runs_given = player['runs_given']
+            balls_bowled = player['balls_given']
+
+            wickets_taken = player['wickets']
+            wickets_lost = 1 if player['is_out'] == True else 0
+
+            hattrick = player['hattrick'] 
+            duck = player['duck'] 
+            highest_score = player['runs']
+            opponent = f"Team B - {self.team_settings['Team B name']}"
+            match_info[userid] = [
+                f"{self.type}", result, opponent, runs_scored, balls_taken, runs_given, 
+                    balls_bowled, wickets_taken, wickets_lost, hattrick, duck,
+                    highest_score, str(datetime.now()), None, None, None
+            ]
+
+        for userid, player in self.TeamB.items():
+            if player['is_human'] == False:
+                continue
+
+            result = player['result']
+            runs_scored = player['runs']
+            balls_taken = player['balls']
+
+            runs_given = player['runs_given']
+            balls_bowled = player['balls_given']
+
+            wickets_taken = player['wickets']
+            wickets_lost = 1 if player['is_out'] == True else 0
+
+            hattrick = player['hattrick'] 
+            duck = player['duck'] 
+            highest_score = player['runs']
+            opponent = f"Team A - {self.team_settings['Team A name']}"
+            match_info[userid] = [
+                f"{self.type}", result, opponent, runs_scored, balls_taken, runs_given, 
+                    balls_bowled, wickets_taken, wickets_lost, hattrick, duck,
+                    highest_score, str(datetime.now()), None, None, None
+            ]
+
+        return match_info
+
 class SingleGame:
-    def __init__(self, ctx: Context):
-        self.player = ctx.author.id
-        self.player_turn = None
+    def __init__(self, ctx: Context, bot):
         self.type = GameType.SINGLE
-        self.game_started = False
+        self.player = ctx.author
+        self.channel = ctx.channel
+        self.bot = bot
+        self.player_turn = None
+        self.game_id = randint(4444, 7777)
         
+        self.game_started = False
         self.innings = None
-        self.innings1_runs, self.innings1_bowls, = 0, 0,
-        self.innings2_runs, self.innings2_bowls = 0, 0
+        self.innings1_runs, self.innings1_bowls, self.innings1_wicks = 0, 0, 0
+        self.innings2_runs, self.innings2_bowls, self.innings2_wicks = 0, 0, 0
+        self.overs = None
+        self.wickets = 1
+        self.duck = False
+        self.hattrick = False
+        self.timeline = deque(['','','','','',''], maxlen=6)
+        self.highest_score = 0
+        self.won = None
 
     @classmethod
-    def create(cls, ctx):
-        new_game = cls(ctx=ctx)
+    def create(cls, ctx, bot):
+        new_game = cls(ctx=ctx, bot=bot)
         return new_game
 
+    async def retreive_match_data(self):
+
+        if self.won == True:
+            result = "WIN"
+        elif self.won == False:
+            result = "LOSS"
+        else:
+            result = "TIE"
+
+        runs_scored = self.innings1_runs if self.player_turn == 'batting' else self.innings2_runs
+        balls_taken = self.innings1_bowls if self.player_turn == 'batting' else self.innings2_bowls
+
+        runs_given = self.innings2_runs if self.player_turn == 'batting' else self.innings1_runs
+        balls_bowled = self.innings2_bowls if self.player_turn == 'batting' else self.innings1_bowls
+
+        wickets_taken = self.innings2_wicks if self.player_turn == 'batting' else self.innings1_wicks
+        wickets_lost = self.innings1_wicks if self.player_turn == 'batting' else self.innings2_wicks
+        
+        hattrick = self.hattrick
+        duck = self.duck
+        highest_score = self.highest_score
+        opponent = "BOT"
+
+        match_info = {
+            self.player.id : [f"{self.type}", result, opponent, runs_scored, balls_taken, runs_given, 
+                                balls_bowled, wickets_taken, wickets_lost, hattrick, duck,
+                                highest_score, str(datetime.now()), None, None, None]
+        }
+        return match_info
+
 class DoubleGame:
-    def __init__(self, ctx: Context, player: Member):
+    def __init__(self, ctx: Context, player: Member, bot):
         self.type = GameType.DOUBLE
-        self.players = [ctx.author.id, player.id]
+        self.players = [ctx.author, player]
+        self.channel = ctx.channel
+        self.bot = bot
         self.challenger_turn = None
-        self.channel = ctx.channel.id
+        self.game_id = randint(4444, 7777)
+        self.timeline = deque(['','','','','',''], maxlen=6)
 
         self.game_started = False
         self.innings = None
         self.stats = {
             ctx.author.id: { 
             'player': ctx.author, 'runs': 0, 'balls': 0, 
-            'wickets': 0, 'last_action': 0 
+            'wickets': 0, 'last_action': 0, 'hattrick': False, 'duck': False, 'highest_score': 0,
+            'is_out': False
             },
             player.id: { 
                 'player': player, 'runs': 0, 'balls': 0, 
-                'wickets': 0, 'last_action': 0 
+                'wickets': 0, 'last_action': 0, 'hattrick': False, 'duck': False, 'highest_score': 0,
+                'is_out': False
                 },
             'curr_batsman': None,
             'curr_bowler': None
             }
+        self.winner = None
 
     @classmethod
-    def create(cls, ctx, player):
-        new_game = cls(ctx=ctx, player=player)
+    def create(cls, ctx, player, bot):
+        new_game = cls(ctx=ctx, player=player, bot=bot)
         return new_game
+
+    async def retreive_match_data(self):
+        match_info = {}
+
+        for player in self.stats.values():
+            runs_scored = player['runs']
+            balls_taken = player['balls']
+            wickets_taken = player['wickets']
+
+            hattrick = player['hattrick']
+            duck = player['duck']
+            highest_score = player['highest_score']
+
+            if player['player'] == self.players[0]:
+                _player = self.stats[self.players[1].id]
+            else:
+                _player = self.stats[self.players[0].id]
+            runs_given = _player['runs']
+            balls_bowled = _player['balls']
+            wickets_lost = _player['wickets']
+            opponent = _player['player'].name
+
+            if self.winner == "TIE":
+                result = "TIE"
+            else:
+                if self.winner.id == player['player'].id:
+                    result = "WIN"
+                elif self.winner.id != player['player'].id:
+                    result = "LOSS"
+
+            match_info[player['player'].id] = [
+                    f"{self.type}", result, opponent, runs_scored, balls_taken, runs_given, 
+                    balls_bowled, wickets_taken, wickets_lost, hattrick, duck,
+                    highest_score, str(datetime.now()), None, None, None
+            ]
+        return match_info
+
+class RunRaceGame:
+    def __init__(self, ctx: Context, bot):
+        self.type = GameType.RUNRACE
+        self.created_at = None
+        self.started_at = None
+        self.host = None
+        self.game_id = random.randint(4444,7777)
+        self.game_started = False
+        self.channel = ctx.channel
+        self.overs = None
+        self.bot_count = 0
+        self.bot = bot
+        self.wickets = 1
+
+        self.players = []
+        self.player_stats = {}
+
+        self.debounce = False
+        self.players_queue = []
+
+    @classmethod
+    def create(cls, ctx, bot):
+        new_game = cls(ctx=ctx, bot=bot)
+        new_game.players.append(ctx.author)
+        new_game.created_at = time()
+        new_game.host = ctx.author.id
+        return new_game
+
+    async def update(self):
+        if self.game_started == True:
+            return
+
+        else:
+            diff = time() - self.created_at
+            if diff > 15 * 60:
+                try:
+                    await self.channel.send("Match has been abandoned due to taking too long to start.")
+                except Exception as e:
+                    return
+                finally:
+                    self.bot.games.pop(self.channel.id)
+
+            else: return
+
+    async def initialise(self):
+        self.game_started = True
+        self.started_at = time()
+        for player in self.players:
+            self.player_stats[player.id] = {
+                'player': player,
+                'runs': 0,
+                'balls': 0,
+                'last_action': 0,
+                'is_human': True if len(str(player.id)) > 4 else False,
+                'is_out': False,
+                'wickets': 0,
+                'l3as': deque(['','',''], maxlen=3),
+                'timeline': deque(['','','','','',''], maxlen=6),
+                'highest_score': 0,
+                '_prev_wicket_score': 0,
+                'duck': False
+            }
+        return True
+
+    async def send_message(self, player_id: int, message :str):
+        try:
+            await send_message(bot=self.bot, ctx=None, user=self.player_stats[player_id]['player'], content=message)
+        except Forbidden:
+            return
+
+    def get_position(self, player_id):
+        position = 1
+        for player in sorted(self.player_stats.items(), key=lambda x: (x[1]['runs'], x[1]['balls']), reverse=True):
+            if player[1]['player'].id == player_id:
+                return position
+                
+            else:
+                position += 1 
+                continue
+
+    def check_endgame(self):
+        if len(self.players) == 3:
+            breakline = 1
+        elif len(self.players) in (4,5):
+            breakline = 2
+        else:
+            breakline = 3
+        position = 1
+        for player in sorted(self.player_stats.items(), key=lambda x: (x[1]['runs'], x[1]['balls']), reverse=True):
+            if position <= breakline:
+                player[1]['result'] = "WIN"
+            elif position > breakline:
+                player[1]['result'] = "LOSS"
+            position += 1
+
+    async def retreive_match_data(self):
+        match_info = {}
+
+        for player in self.player_stats.values():
+            if player['is_human'] == False:
+                continue
+            runs_scored = player['runs']
+            balls_taken = player['balls']
+            
+            runs_given = 0
+            balls_bowled = 0
+            
+            wickets_taken = 0 
+            wickets_lost = player['wickets']
+            
+            hattrick = False
+            duck = player['duck'] 
+            highest_score = player['highest_score']
+            opponent = "ALL"  
+            result = player['result']
+            match_info[player['player'].id] = [
+                f"{self.type}", result, opponent, runs_scored, balls_taken, runs_given, 
+                balls_bowled, wickets_taken, wickets_lost, hattrick, duck,
+                highest_score, str(datetime.now()), None, None, None
+            ]
+            
+        return match_info

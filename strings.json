@@ -1,0 +1,149 @@
+{
+    "changeteamname_desc" : [
+        "Using this command you can change the names of Teams in matches as you would like. ",
+        "Please note that name of a team should not exceed 20 characters. ",
+        "You can be as creative with the names as you want. :P"
+    ],
+    "play_desc" : [
+        "Play a Hand Cricket match against the bot using this command.",
+        " The bot first prompts you for a toss and then the match begins.",
+        " You can also use this command in Direct messages."
+    ],
+    "challenge_desc" : [
+        "Challenge another member in the server for a 1 vs 1 Hand cricket match using this command."
+    ],
+    "ping_desc" : [
+        "Returns the response time from the server."
+    ],
+    "stats_desc" : [
+        "Gives various statistics about the bot such as Uptime and how many matches were played everywhere since the beginning."
+    ],
+    "news_desc" : [
+        "You can find all the recent updates information and other info using this command."
+    ],
+    "invite_desc" : [
+        "Gives you invite link and support server link of the bot."
+    ],
+    "prefix_desc" : [
+        "Tells about the default prefix and server's prefix the bot operates on. ",
+        "You must be an Admin or have manage server permissions to change the server's prefix. ",
+        "Normal users can also know about the prefix by simply tagging the bot."
+    ],
+    "create_desc" : [
+        "Creates a lobby for Multiplayer hand cricket match. This allows multiple members to join, the creator will be the host."
+    ],
+    "join_desc" : [
+        "Joins an existing multiplayer match lobby. You cannot join multiple matches at the same time. ",
+        "You can also join the game through reacting to the emoji named 'React To Join'"
+    ],
+    "status_desc" : [
+        "Shows live status of the current multiplayer match, it gives info about what Innings it is, ",
+        "scores of both Teams, how many wickets they lost, which player is batting, which player is bowling and/or ",
+        "how many runs are left to chase if its second innings."
+    ],
+    "toss_desc" : [
+        "Conducts toss for the both teams before starting a match. ",
+        "Toss helps in deciding which team will bat first and which team will bowl first. ",
+        "The respective team captains do the coin toss and then the winner captain decides if they wants to bat first or bowl."
+    ],
+    "swap_desc" : [
+        "Using this command you can swap the positions of two players in teams. ",
+        "To swap, use the position number of the player in playerlist. ",
+        "For example, if Player A is in position 3 and Player B is in position 5, ",
+        "then do command *swap 3 5* and it'll swap their positions. You can swap players ",
+        "between a Team (to change a captain) and swap between two teams as well."
+    ],
+    "shuffle_desc" : [
+        "Randomly shuffle the players and split them into two teams once enough players join the match. ",
+        "Shuffling at least once is mandatory to create two teams in multiplayer gamemode."
+    ],
+    "setovers_desc" : [
+        "Set the maximum number of overs each team will play in the Multiplayer match. ",
+        "You can set a minimum of 2 or maximum of 20 overs. ",
+        "Setting overs is mandatory before starting a multiplayer match."
+    ],
+    "leave_desc" : [
+        "Use this command to leave any type of ongoing hand cricket match. ",
+        "If it's a Single player or Player vs player match, it forfeits the game and shows the scores with no result. ",
+        "If it's a Multiplayer or Run Race match, and if the game has not started yet, you simply leave the lobby. ",
+        "But if the game has started then first you'll be kicked out of the match, then you will be replaced by a bot (dummy player) ",
+        "and the statistics of your match will be transferred to it. So that the game can continue smoothly.",
+        "\nUse this command in case of any urgency, but be careful, once you leave a started match you cannot re-join it."
+    ],
+    "playerlist_desc" : [
+        "For Run Race gamemode this shows the full line-up of who has joined. \n\nFor Multiplayer gamemode this shows the full player list ",
+        "of players and who is in which team. If this command is used before starting the match, it only shows the line-up of the two teams.",
+        "If this command is used after the match has started, it will also show how many runs and wickets each player has scored",
+        ", 0/0 if their turn hasn't come yet."
+    ],
+    "addbot_desc" : [
+        "This command adds a bot to the playerlist of Multiplayer and Run Race gamemodes. ", 
+        "\nA bot is just an automated dummy player In case not a lot of members join your match lobby, you can add bots ",
+        "to meet the minimum player requirements for the gamemode. \n\nAdditionally, you can name the bots as you desire. In order to ",
+        "name your bots, when you use the command addbot, specify their names right there and separate each bot's name with a comma ','. ",
+        "You can't change or edit your bot's names after that. You'll have to remove them.\n\n",
+        "*Note: The main point of adding bots is to fill the space if there is unequal amount of players. ", 
+        "I do not recommend filling the team with bots, its a lot more fun to play with server members.*"
+    ],
+    "events_desc" : [
+        "This shows you the information and statistics about the ongoing or upcoming Global events!",
+        " Global events are where each and every player or server will contribute toward a single huge target. ",
+        "If the target is reached before the event ends, The event is said to be successful! You can see how much ",
+        "progress has been made in the progress bar."
+    ],
+    "removebot_desc" : [
+        "Removes a bot player from the team if it is not needed. You can remove one bot each command.",
+        "\nTo remove a bot with a specific name, type the bot's name in case sensitive words.",
+        "\nYou can't remove real players using this command."
+    ],
+    "delete_desc" : [
+        "Deletes the ongoing Multiplayer or Run Race match, whether it has started or not. ",
+        "Be careful when deleting matches. ",
+        "All stats will be lost and no scoreboard will be posted upon abandoning it."
+    ],
+    "start_desc" : [
+        "*Breaths deeply* \nFinally, this command starts the Multiplayer and Run Race match. ",
+        "\n\nIn Multiplayer match, the Bot will there after tell who will bat first and who will bowl first. ",
+        "Once a match is started cannot be paused. If a player goes afk, Bot will roll a random number on behalf of the player.",
+        "\n\nIn Run Race, the match will continue until all the players are bowled out. "
+    ],
+    "changehost_desc" : [
+        "Changes the host to the tagged person. The host is responsible for ",
+        "setting overs, swapping players, doing the toss, shuffling the players and ",
+        "deleting the match anytime if they want to."
+    ],
+    "remove_desc" : [
+        "Removes a player from the match lobby. You cannot remove players when match has started. ",
+        "If the player is afk, HandCricket Bot will automatically roll a number for that ",
+        "player every 20 seconds."
+    ],
+    "sledge_desc" : [
+        "Sledge another player that you tag with a random sledging."
+    ],
+    "sledges" : [
+        "I've been waiting so long for another chance at you! But looks like you spent it chatting! :joy:",
+        "Look who it is. Mate, what are you doing here? There's no way you could stand 10 seconds against me. :thinking:",
+        "All you know is spamming that '6' button eh? :unamused:",
+        "Go ahead mate we have all year for you to hit a 6.",
+        "You're supposed to respond to the ball and not wait till bot rolls a number for you, LOL.",
+        "Bro stop making the audience bored. :yawning_face:",
+        "Ben stokes!",
+        "Bud, we make a good pair. I can't bat and you can't fricking bowl.",
+        "Aryabhatt invented 0 to represent your actual score and that's also the same number you keep hitting on your keyboard. :pray:",
+        "No one likes seeing you getting beaten every match.",
+        "If there was a leaderboard you'd rank first! but from bottom. :arrow_down:",
+        "When you bat, *cricket noises* :cricket:",
+        "I'm already in your head! So i know what move you're gonna play next. :brain:",
+        "Are you an auto rickshaw? Because you play tuk tuk. :auto_rickshaw:"
+    ],
+    "milestone_runs": [
+        "https://tenor.com/brtZQ.gif",
+        "https://tenor.com/burg1.gif",
+        "https://tenor.com/bbS1h.gif"
+    ],
+    "milestone_wickets":[
+        "https://tenor.com/baYT8.gif",
+        "https://tenor.com/bekKh.gif",
+        "https://tenor.com/bwuOB.gif"
+    ]
+}

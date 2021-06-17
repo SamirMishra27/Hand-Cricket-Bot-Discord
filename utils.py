@@ -1,8 +1,11 @@
 import random
 from enum import Enum, IntEnum, auto
-from discord import Member, Embed
+from discord import Member, Embed, ChannelType
 from discord.ext import commands
 from datetime import datetime
+import time
+import asyncio
+import json
 
 def cointoss(message):
     if message.content.lower() == random.choice(['heads','tails']):
@@ -19,14 +22,30 @@ class GameType(Enum):
     SINGLE = 'Player vs Bot'
     DOUBLE = 'Player vs Player'
     MULTI  = 'Multiplayer'
+    RUNRACE = 'Run Race'
 
 class Innings(IntEnum):
     ONE = auto()
     TWO = auto()
 
+class Status(Enum):
+    ACTIVE = "Active"
+    INACTIVE = "Inactive" 
+
 MAYABLUE = 0x73C2FB
 SPRINGGREEN = 0x00FA9A
+BASICRED = 0xe74c3c
 
+action_emojis = {'0️⃣': 0, '1️⃣':1, '2️⃣':2, '3️⃣':3, '4️⃣':4, '5️⃣':5, '6️⃣':6}
+misc_emojis = {
+    'rtj':'<:emoji_3:813094554378567740>',
+    'load':'<a:emoji_2:781233777258004540>',
+    'town':'<:emoji_1:756240523177623575>'  
+    }
+live_gif = "https://cdn.discordapp.com/attachments/663324452934778880/817117402071302174/ezgif-4-515aefdc0865.gif"    
+
+with open("strings.json") as f:
+    strings = json.load(f)
 
 class FBot:
     def __init__(self, count):
@@ -49,8 +68,8 @@ def game_only():
 
         if ctx.channel.id not in ctx.bot.games:
             raise commands.CheckFailure(
-            'There is no multiplayer hand cricket match going here.'
-            '`To host one, use the command create first!`')
+            'There is no multiplayer or run race hand cricket match going here.'
+            '`To host one, use the command create / runrace first!`')
             
         return True
 
@@ -102,8 +121,10 @@ def shuffled_only():
     async def predicate(ctx):
         game = ctx.bot.games[ctx.channel.id]
 
+        if game.type == GameType.RUNRACE:
+            return True
         if game.shuffled == False:
-            raise commands.CheckFailure('You have not shuffuled the players yet. use .shuffle to shuffle the players first.')
+            raise commands.CheckFailure('You have not shuffuled the players yet. use command shuffle to shuffle the players first.')
         return True
 
     return commands.check(predicate)
@@ -121,8 +142,24 @@ def min_four_players_only():
 def multiplayer_game_only():
     async def predicate(ctx):
         if ctx.bot.games[ctx.channel.id].type in (GameType.SINGLE, GameType.DOUBLE):
+            raise commands.CheckFailure('This is a Multiplayer match and Run Race only command.')
+        return True
+
+    return commands.check(predicate)
+
+def multiplayer_mode_only():
+    async def predicate(ctx):
+        if ctx.bot.games[ctx.channel.id].type != GameType.MULTI:
             raise commands.CheckFailure('This is a Multiplayer match only command.')
         return True
+
+    return commands.check(predicate)
+
+def runrace_mode_only():
+    async def predicate(ctx):
+        if ctx.bot.games[ctx.channel.id].type != GameType.RUNRACE:
+            raise commands.CheckFailure('This is a Run Race match only command.')
+        return True    
 
     return commands.check(predicate)
 
@@ -156,7 +193,8 @@ template2 = {
         (60,225), (470,230), (530,240), (660, 225), (1080,230), (1170,240)
     ),
     'colour' : (255,255,255),
-    'spacing' : (0, 8, 8, 8, 0, -1.2, -0.2, 5.5, -1.2, -0.2, 5.5),
+    # 'spacing' : (0, 8, 8, 8, 0, -1.2, -0.2, 5.5, -1.2, -0.2, 5.5),5.4
+    'spacing' : (0, 8, 8, 8, 0, -1.4, 0.0, 6.0, -1.4, -0.4, 5.3),
     'newline' : ('\n'*9, '\n'*14, '\n'*9, '\n'*4, '\n'*3)
 }
 
@@ -171,115 +209,144 @@ template3 = {
     'newline' : ('\n'*14, '\n'*17, '\n'*14, '\n'*6, '\n'*6)
 }
 
-class CustomHelpCommand(commands.DefaultHelpCommand):
-
-    def __init__(self):
-        super().__init__(
-            indent = 8,
-            verify_checks=False
-        )
-
-    async def send_bot_help(self, mapping):
-        bot = self.context.bot
-        embed = Embed()
-        embed.colour = MAYABLUE
-        embed.set_thumbnail(url=str(bot.user.avatar_url))
-        row_1 = (
-            f'My prefix in this server is `{self.context.guild_prefix}`'
-            f'My default prefix is `{bot.prefix}`'
-            f'\nYou can also mention me instead.'
-        )
-        row_5 = (
-            f'[Invite Link]({bot.send_invite_link}) to add the bot to your server!'
-            f'\n[Support Server Link]({bot.send_support_server}) for more help and suggestions and feedback.'
-   )
-     
-        for cog, commands in mapping.items():
-            cog_name = getattr(cog, '__cog_name__', 'Other')
-            if cog_name in ('Owner','EventLoops','Six'):
-                continue
-            
-            cmd_list = ''
-            if cog_name in ('Multiplayer', 'Default', 'Misc'):
-                cmd_list += f'*{cog.cog_brief}*\n'
-            for command in commands:
-                if command.hidden == True:
-                    continue
-                cmd_list += f"{bot.prefix}{spacing(command.name)}  -  `{command.brief}`\n"
-            embed.add_field(name=cog_name, value=cmd_list, inline=False)
-
-        row_6 = bot.help_end_footer
-        embed.set_footer(text=row_6) 
-        embed.description = row_1+'\n\n'+row_5
-        await self.context.send(embed=embed)
-
-    async def send_command_help(self, command):
-        if command.hidden:
-            return
-
-        bot = self.context.bot
-        usage = self.get_command_signature(command)
-        embed = Embed(title=f'command {command.name}')
-        embed.set_author(name=bot.user.name,icon_url=str(bot.user.avatar_url))
-        embed.description = (
-            f":label: | **Usage:** \n`{command.usage[0]}`"
-            f"\n\n:page_with_curl: | **Description:**\n {command.help}" #command.brief
-        )
-        if command.usage[1] is not None:
-            embed.description += f"\n\n:speech_balloon: | **Example:**\n"
-            for eg in command.usage[1]:
-                embed.description += f"→ *{eg}*\n"
-
-        embed.colour = MAYABLUE
-        await self.get_destination().send(embed=embed)
-
-    async def send_cog_help(self, cog):
-        bot = self.context.bot
-        if cog.qualified_name in ('Owner','EventLoops'):
-            return
-
-        cmd_list = ''
-        for command in cog.walk_commands():
-            if command.hidden: continue
-            cmd_list += f'{self.context.bot.prefix}{command.name} - {command.brief}\n'
-        embed = Embed(title=cog.qualified_name)
-        embed.set_author(name=bot.user.name, icon_url=str(bot.user.avatar_url))
-        embed.description = (
-            f"{cog.cog_description}\n\n"
-            f"{cmd_list}"
-        )
-        embed.colour = MAYABLUE
-        return await self.get_destination().send(embed=embed)
-
 async def log_game(ctx, type):
     to_enter = (ctx.guild.id if ctx.guild is not None else 'Private context', f'{type}', str(datetime.now()))
-    with ctx.bot.db as conn:
-        cur = conn.cursor()
-        cur.execute("INSERT INTO matches VALUES (?,?,?)", to_enter)
-        conn.commit()
+
+    await ctx.bot.db.execute_insert("INSERT INTO matches(guild_id, game_type, date_time) VALUES (?,?,?);", to_enter)
+    await ctx.bot.db.commit()
 
 class CustomContext(commands.Context):
 
     @property
     def guild_prefix(self):
-        if self.guild is None:
-            return self.bot.prefix
-        with self.bot.db as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM prefixes WHERE guild_id == (?)", (self.guild.id,))
-            return cur.fetchone()[1]
+        prefix = self.bot.guild_settings_cache[self.guild.id]['prefix']
+        print(prefix, self.channel.id)
+        return prefix
 
-# class UtilsCog(commands.Cog):
-#     pass
-# def setup(bot):
-#     bot.add_cog(UtilsCog(bot)),'utils'
+    async def send(
+        self, content=None, *, tts=False, embed=None, file=None, files=None, delete_after=None, 
+        nonce=None, allowed_mentions=None, reference=None, mention_author=None, view=None
+    ):
+        # if self.guild is not None:
+        if self.guild is not None:
+            last_timestamp = self.bot.last_message_cache.get(self.guild.id, 0)
+            curr_time = time.time()
+            if curr_time - last_timestamp > 1.0:
+                
+                self.bot.last_message_cache[self.guild.id] = curr_time
+                return await super().send(
+                    content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, 
+                    nonce=nonce, allowed_mentions=allowed_mentions, mention_author=mention_author, view=view
+                )
+            else:    
+                await asyncio.sleep(curr_time - last_timestamp + 0.800)
+                
+                curr_time = time.time()
+                self.bot.last_message_cache[self.guild.id] = curr_time
+                return await super().send(
+                    content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, 
+                    nonce=nonce, allowed_mentions=allowed_mentions, mention_author=mention_author, view=view
+                )
+        else:
+            last_timestamp = self.bot.last_message_cache.get(self.channel.id, 0)
+            curr_time = time.time()
+            if curr_time - last_timestamp > 1.0:
+                
+                self.bot.last_message_cache[self.channel.id] = curr_time
+                return await super().send(
+                    content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, 
+                    nonce=nonce, allowed_mentions=allowed_mentions, mention_author=mention_author, view=view
+                )
+            else:
+                await asyncio.sleep(curr_time - last_timestamp + 0.800)
+                
+                curr_time = time.time()
+                self.bot.last_message_cache[self.channel.id] = curr_time
+                return await super().send(
+                    content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, 
+                    nonce=nonce, allowed_mentions=allowed_mentions, mention_author=mention_author, view=view
+                )
+
 def check_for_other_games(bot, author): 
     to_decline = False
     for game in bot.games.values():
-        if game.type == GameType.SINGLE and author.id == game.player:
+        if game.type == GameType.SINGLE and author.id == game.player.id:
             to_decline = True
         if game.type == GameType.DOUBLE and author.id in game.players:
             to_decline = True
         if game.type == GameType.MULTI and author in game.players:
             to_decline = True
+        if game.type == GameType.RUNRACE and author in game.players:
+            to_decline = True
     return to_decline
+
+    
+async def send_message(bot, ctx=None, user=None, content='_____', embed=None, file=None):
+    if user == None:
+        # if ctx.guild is not None:
+        if hasattr(ctx, 'guild'):
+            last_timestamp = bot.last_message_cache.get(ctx.guild.id, 0)
+            curr_time = time.time()
+            if curr_time - last_timestamp > 1.0:
+                await ctx.send(content=content, embed=embed, file=file)
+                bot.last_message_cache[ctx.guild.id] = curr_time
+            else:    
+                await asyncio.sleep(curr_time - last_timestamp + 0.800)
+                await ctx.send(content=content, embed=embed, file=file)
+                curr_time = time.time()
+                bot.last_message_cache[ctx.guild.id] = curr_time
+        else:
+            last_timestamp = bot.last_message_cache.get(ctx.channel.id, 0)
+            curr_time = time.time()
+            if curr_time - last_timestamp > 1.0:
+                await ctx.send(content=content, embed=embed, file=file)
+                bot.last_message_cache[ctx.channel.id] = curr_time
+            else:
+                await asyncio.sleep(curr_time - last_timestamp + 0.800)
+                await ctx.send(content=content, embed=embed, file=file)
+                curr_time = time.time()
+                bot.last_message_cache[ctx.channel.id] = curr_time
+                
+            
+    elif ctx == None:
+        last_timestamp = bot.last_message_cache.get(user.id, 0)
+        curr_time = time.time()
+        if curr_time - last_timestamp > 1.0:
+            await user.send(content)
+            bot.last_message_cache[user.id] = curr_time
+        else:    
+            await asyncio.sleep(curr_time - last_timestamp + 0.800)
+            await user.send(content)
+            curr_time = time.time()
+            bot.last_message_cache[user.id] = curr_time
+            
+
+async def check_for_milestone(player, destination, last_score, curr_score, bot):
+    if curr_score >= 50 and last_score < 50:
+        milestone = "FIFTY!"
+    elif curr_score >= 100 and last_score < 100:
+        milestone = "CENTURY!"
+    elif curr_score >= 150 and last_score < 150:
+        milestone = "ONE FIFTY!"
+    else:
+        return
+
+    gif = random.choice(strings["milestone_runs"])
+    await send_message(bot=bot, ctx=None, user=destination, 
+    content=f"**{player}** got a **{milestone}!**\n{gif}")
+
+async def check_for_hattrick(player, timeline, destination, wickets, to_count=True, bot="bot"):
+    hattrick = False
+    message = ""
+    gif = random.choice(strings["milestone_wickets"])
+    if timeline[5] == "W" and timeline[4] == "W" and timeline[3] == "W":
+        message = f"**{player} got a Hat-trick!!**\n{gif}"
+        hattrick = True
+
+    if to_count == True:
+        if wickets == 3 or wickets == 5:
+            message += f"\n**{player}{' also' if hattrick == True else ''} got {3 if wickets == 3 else 5} Wickets!!**"
+
+    if message != "":
+        await send_message(bot=bot, ctx=None, user=destination, content=message)
+    return hattrick

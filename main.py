@@ -2,14 +2,6 @@
     Copyright © 2020-2021 SamirMishra27
     all rights reserved
     This file is a part of HandCricket project
-    Under any circumstances, you may not modify
-    adapt, sell, publicly display, redistribute, 
-    copy or create derivative works of this project,
-    whether for commercial or non-commercial 
-    purpose, without obtaining the explicit
-    permission of the copyright holder ("Code Owner")
-
-    For any futher questions, contact owner at Discord @SAMIR#7795
 """
 
 

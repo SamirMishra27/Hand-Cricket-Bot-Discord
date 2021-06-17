@@ -8,3 +8,6 @@ discord/
 assets/
 .vscode
 .bash_history
+ownercog.py
+howtoplay.txt
+news.txt

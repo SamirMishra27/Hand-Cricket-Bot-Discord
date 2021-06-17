@@ -83,7 +83,7 @@ class Client(commands.Bot):
             # help_command = CustomHelpCommand()
         )
     
-        self.version = '3.0'
+        self.version = '5.0a'
         self.log = logging.getLogger()
         self.games = {}
         self.db = None 

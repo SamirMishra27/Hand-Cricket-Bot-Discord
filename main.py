@@ -9,7 +9,7 @@ import discord
 from discord.ext import commands
 
 from datetime import datetime
-from os import getenv
+from os import environ
 from utils import *
 import traceback
 import aiosqlite
@@ -383,4 +383,6 @@ class Client(commands.Bot):
         return await super().close()
 
 if __name__ == "__main__":
+    environ['JISHAKU_NO_UNDERSCORE'] = 'True'
+    environ['JISHAKU_NO_DM_TRACEBACK'] = 'True'
     Client().run(token, reconnect=True)

@@ -373,7 +373,7 @@ class Default(commands.Cog):
         def check03(message_3): return message_3.channel == ctx.channel and message_3.author.id == toss_winner and message_3.content.lower() in ('bat','bowl') 
         def check04(message): return message.channel.type == discord.ChannelType.private and message.author.id in participants_ids and message.content in ('0','1','2','3','4','5','6',)
 
-        await ctx.send(f'Hey **{player.name}**, **{ctx.author.name}** would like to challenge you, do you accept it? (yes / no)')
+        await ctx.send(f'Hey **{player.name}**, **{ctx.author.name}** would like to challenge you, do you accept it? (yes / y / no / n)')
 
         try:
             message_1 = await self.bot.wait_for('message', timeout=60, check=check01)

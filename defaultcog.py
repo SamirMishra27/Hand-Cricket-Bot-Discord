@@ -1,4 +1,5 @@
 import discord
+from discord import message
 from discord.ext import commands
 
 import asyncio
@@ -367,7 +368,7 @@ class Default(commands.Cog):
         game = DoubleGame.create(ctx=ctx, player=player, bot=self.bot)
         self.bot.games[ctx.channel.id] = game
 
-        def check01(message_1): return message_1.channel == ctx.channel and message_1.author.id == player.id and message_1.content.lower() in ('yes','no')
+        def check01(message_1): return message_1.channel == ctx.channel and message_1.author.id == player.id and ('y' in message_1.content.lower() or 'n' in message_1.content.lower())
         def check02(message_2): return message_2.channel == ctx.channel and message_2.author.id == ctx.author.id and message_2.content.lower() in ('heads','tails')
         def check03(message_3): return message_3.channel == ctx.channel and message_3.author.id == toss_winner and message_3.content.lower() in ('bat','bowl') 
         def check04(message): return message.channel.type == discord.ChannelType.private and message.author.id in participants_ids and message.content in ('0','1','2','3','4','5','6',)
@@ -381,7 +382,7 @@ class Default(commands.Cog):
             await ctx.send("Person didn't respond in the given time.") 
             return self.bot.games.pop(ctx.channel.id)
 
-        if message_1.content.lower() == 'no': 
+        if 'n' in message_1.content.lower():
             await ctx.send(f"Well, {player.name} declined.")
             return self.bot.games.pop(ctx.channel.id)
 
